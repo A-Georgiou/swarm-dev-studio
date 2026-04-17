@@ -1,0 +1,4 @@
+
+> @swarm/ui@0.1.0 build /workspace/packages/ui
+> tsc --project tsconfig.json
+

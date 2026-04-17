@@ -1,0 +1,4 @@
+
+> @swarm/types@0.1.0 typecheck /workspace/packages/types
+> tsc --noEmit --project tsconfig.json
+
