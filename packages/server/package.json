@@ -14,16 +14,20 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "dev": "tsc --watch --project tsconfig.json",
+    "start": "node dist/start.js",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "lint": "echo 'lint: ok'",
-    "test": "echo 'test: ok'",
+    "test": "node --test dist/__tests__/server.test.js",
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@swarm/engine": "workspace:*",
     "@swarm/types": "workspace:*",
-    "@swarm/engine": "workspace:*"
+    "ws": "^8.20.0"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/ws": "^8.18.1",
     "typescript": "^5.7.0"
   }
 }

@@ -1,0 +1,115 @@
+{
+  "version": "1.0.0",
+  "generated": "2026-04-17T12:51:18.445Z",
+  "assets": {
+    "sprites": {
+      "characters": [
+        {
+          "role": "ceo",
+          "spriteSheet": "sprites/ceo.png",
+          "atlas": "sprites/ceo.json",
+          "frameSize": {
+            "w": 32,
+            "h": 48
+          }
+        },
+        {
+          "role": "cto",
+          "spriteSheet": "sprites/cto.png",
+          "atlas": "sprites/cto.json",
+          "frameSize": {
+            "w": 32,
+            "h": 48
+          }
+        },
+        {
+          "role": "senior-manager",
+          "spriteSheet": "sprites/senior-manager.png",
+          "atlas": "sprites/senior-manager.json",
+          "frameSize": {
+            "w": 32,
+            "h": 48
+          }
+        },
+        {
+          "role": "team-manager",
+          "spriteSheet": "sprites/team-manager.png",
+          "atlas": "sprites/team-manager.json",
+          "frameSize": {
+            "w": 32,
+            "h": 48
+          }
+        },
+        {
+          "role": "pm",
+          "spriteSheet": "sprites/pm.png",
+          "atlas": "sprites/pm.json",
+          "frameSize": {
+            "w": 32,
+            "h": 48
+          }
+        },
+        {
+          "role": "senior-dev",
+          "spriteSheet": "sprites/senior-dev.png",
+          "atlas": "sprites/senior-dev.json",
+          "frameSize": {
+            "w": 32,
+            "h": 48
+          }
+        },
+        {
+          "role": "developer",
+          "spriteSheet": "sprites/developer.png",
+          "atlas": "sprites/developer.json",
+          "frameSize": {
+            "w": 32,
+            "h": 48
+          }
+        },
+        {
+          "role": "qa-engineer",
+          "spriteSheet": "sprites/qa-engineer.png",
+          "atlas": "sprites/qa-engineer.json",
+          "frameSize": {
+            "w": 32,
+            "h": 48
+          }
+        },
+        {
+          "role": "tester",
+          "spriteSheet": "sprites/tester.png",
+          "atlas": "sprites/tester.json",
+          "frameSize": {
+            "w": 32,
+            "h": 48
+          }
+        }
+      ]
+    },
+    "tiles": {
+      "tileset": {
+        "image": "tiles/office-tileset.png",
+        "metadata": "tiles/office-tileset.json",
+        "tileSize": 16,
+        "tileCount": 50
+      }
+    },
+    "maps": {
+      "office": {
+        "file": "maps/office-map.json",
+        "width": 80,
+        "height": 60
+      }
+    },
+    "ui": {
+      "speechBubble": "ui/speech-bubble.png",
+      "thoughtBubble": "ui/thought-bubble.png",
+      "statusIcons": {
+        "spriteSheet": "ui/status-icons.png",
+        "atlas": "ui/status-icons.json"
+      },
+      "teamColors": "ui/team-colors.png"
+    }
+  }
+}

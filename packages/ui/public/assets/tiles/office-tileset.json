@@ -1,0 +1,211 @@
+{
+  "image": "office-tileset.png",
+  "imagewidth": 160,
+  "imageheight": 80,
+  "tilewidth": 16,
+  "tileheight": 16,
+  "tilecount": 50,
+  "columns": 10,
+  "tiles": {
+    "1": {
+      "type": "floor",
+      "name": "carpet-neutral"
+    },
+    "2": {
+      "type": "floor",
+      "name": "carpet-alpha"
+    },
+    "3": {
+      "type": "floor",
+      "name": "carpet-beta"
+    },
+    "4": {
+      "type": "floor",
+      "name": "carpet-gamma"
+    },
+    "5": {
+      "type": "floor",
+      "name": "carpet-delta"
+    },
+    "6": {
+      "type": "floor",
+      "name": "carpet-epsilon"
+    },
+    "7": {
+      "type": "floor",
+      "name": "carpet-zeta"
+    },
+    "8": {
+      "type": "floor",
+      "name": "hardwood"
+    },
+    "9": {
+      "type": "floor",
+      "name": "tile-floor"
+    },
+    "10": {
+      "type": "floor",
+      "name": "lobby-floor"
+    },
+    "11": {
+      "type": "floor",
+      "name": "corridor"
+    },
+    "12": {
+      "type": "floor",
+      "name": "grass"
+    },
+    "13": {
+      "type": "wall",
+      "name": "exterior-top"
+    },
+    "14": {
+      "type": "wall",
+      "name": "exterior-side"
+    },
+    "15": {
+      "type": "wall",
+      "name": "interior-horiz"
+    },
+    "16": {
+      "type": "wall",
+      "name": "interior-vert"
+    },
+    "17": {
+      "type": "wall",
+      "name": "glass-horiz"
+    },
+    "18": {
+      "type": "wall",
+      "name": "glass-vert"
+    },
+    "19": {
+      "type": "wall",
+      "name": "wall-corner"
+    },
+    "20": {
+      "type": "wall",
+      "name": "wall-endcap"
+    },
+    "21": {
+      "type": "furniture",
+      "name": "desk-left"
+    },
+    "22": {
+      "type": "furniture",
+      "name": "desk-right"
+    },
+    "23": {
+      "type": "furniture",
+      "name": "chair"
+    },
+    "24": {
+      "type": "furniture",
+      "name": "monitor"
+    },
+    "25": {
+      "type": "furniture",
+      "name": "keyboard"
+    },
+    "26": {
+      "type": "furniture",
+      "name": "whiteboard"
+    },
+    "27": {
+      "type": "furniture",
+      "name": "coffee-machine"
+    },
+    "28": {
+      "type": "furniture",
+      "name": "plant"
+    },
+    "29": {
+      "type": "furniture",
+      "name": "bookshelf"
+    },
+    "30": {
+      "type": "furniture",
+      "name": "meeting-table-left"
+    },
+    "31": {
+      "type": "furniture",
+      "name": "meeting-table-right"
+    },
+    "32": {
+      "type": "furniture",
+      "name": "water-cooler"
+    },
+    "33": {
+      "type": "furniture",
+      "name": "printer"
+    },
+    "34": {
+      "type": "furniture",
+      "name": "filing-cabinet"
+    },
+    "35": {
+      "type": "furniture",
+      "name": "couch-left"
+    },
+    "36": {
+      "type": "furniture",
+      "name": "couch-right"
+    },
+    "37": {
+      "type": "furniture",
+      "name": "trash-can"
+    },
+    "38": {
+      "type": "furniture",
+      "name": "lamp"
+    },
+    "39": {
+      "type": "door",
+      "name": "door-closed-horiz"
+    },
+    "40": {
+      "type": "door",
+      "name": "door-open-horiz"
+    },
+    "41": {
+      "type": "door",
+      "name": "door-closed-vert"
+    },
+    "42": {
+      "type": "door",
+      "name": "door-open-vert"
+    },
+    "43": {
+      "type": "decoration",
+      "name": "team-banner"
+    },
+    "44": {
+      "type": "decoration",
+      "name": "status-screen"
+    },
+    "45": {
+      "type": "decoration",
+      "name": "clock"
+    },
+    "46": {
+      "type": "decoration",
+      "name": "elevator-door"
+    },
+    "47": {
+      "type": "decoration",
+      "name": "stairs"
+    },
+    "48": {
+      "type": "decoration",
+      "name": "rug-center"
+    },
+    "49": {
+      "type": "decoration",
+      "name": "window"
+    },
+    "50": {
+      "type": "decoration",
+      "name": "empty"
+    }
+  }
+}

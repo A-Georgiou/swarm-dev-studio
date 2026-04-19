@@ -7,7 +7,8 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "typecheck": "turbo typecheck",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "generate-assets": "node scripts/generate-assets/index.js"
   },
   "devDependencies": {
     "canvas": "^3.2.3",
