@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint: ok'",
     "test": "echo 'test: ok'",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@swarm/types": "workspace:*",

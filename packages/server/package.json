@@ -13,12 +13,12 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "dev": "tsc --watch --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json && node dist/start.js",
     "start": "node dist/start.js",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "lint": "echo 'lint: ok'",
     "test": "node --test dist/__tests__/server.test.js",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@swarm/engine": "workspace:*",

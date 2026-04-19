@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "lint": "echo 'lint: ok'",
     "test": "echo 'test: ok'",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "devDependencies": {
     "typescript": "^5.7.0"
