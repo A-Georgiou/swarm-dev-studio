@@ -214,6 +214,7 @@ export class OfficeScene extends Phaser.Scene {
       data.agentId,
       displayName,
       spriteKey,
+      data.spriteSheet,
     );
 
     character.setMovementController(this.movementController);

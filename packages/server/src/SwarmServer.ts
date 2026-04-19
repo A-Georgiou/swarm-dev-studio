@@ -136,13 +136,19 @@ export class SwarmServer {
 
   private handleGetAgents(res: ServerResponse): void {
     const agents = this.simulation.agentManager.getAll();
-    const response: GetAgentsResponse = {
+    const response = {
       agents: agents.map((a) => ({
         id: a.id,
         role: a.role,
         name: a.persona.name,
+        title: a.persona.title,
         state: a.state,
         teamId: a.teamId,
+        model: a.persona.modelAssignment,
+        personality: a.persona.personality,
+        communicationStyle: a.persona.communicationStyle,
+        catchphrases: a.persona.catchphrases,
+        currentTaskId: a.currentTaskId,
       })),
     };
     this.jsonResponse(res, 200, response);

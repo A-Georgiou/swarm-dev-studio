@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint: ok'",
-    "test": "echo 'test: ok'",
-    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+    "test": "tsc --project tsconfig.test.json && node --test dist-test/ui.test.js",
+    "clean": "rm -rf dist dist-test tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@swarm/types": "workspace:*",
@@ -20,6 +20,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

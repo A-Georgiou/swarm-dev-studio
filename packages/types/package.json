@@ -16,10 +16,11 @@
     "dev": "tsc --watch --project tsconfig.json",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "lint": "echo 'lint: ok'",
-    "test": "echo 'test: ok'",
+    "test": "node --test dist/__tests__/types.test.js",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "typescript": "^5.7.0"
   }
 }

@@ -11,20 +11,21 @@ A developer swarm system where AI agents work together in a pixel-art office to 
 @swarm/ui       → Phaser 3 pixel-art game + React sidebar
 ```
 
-## Team Structure (42 agents across 5 teams)
+## Team Structure (49 agents across 6 teams)
 
 ```
 CEO (Morgan Blackwell) — Claude Opus 4.6
-└── CTO (Aria Chen) — Claude Opus 4.6
-    ├── Staff Manager (Jordan Rivera) — GPT-5.4
-    │   ├── Sr Manager (Alex Mercer) — Sonnet 4.5
+└── CTO (Aria Chen) — Claude Opus 4.6 (1M context)
+    ├── Staff Manager (Jordan Rivera) — Claude Opus 4.5
+    │   ├── Sr Manager (Alex Mercer) — GPT-5.4
     │   │   ├── Team Alpha (Frontend/UI) — 7 members
     │   │   └── Team Beta (Backend/API) — 7 members
-    │   └── Sr Manager (Sam Okafor) — Sonnet 4.5
+    │   └── Sr Manager (Sam Okafor) — GPT-5.4
     │       ├── Team Gamma (Data/Infra) — 7 members
     │       ├── Team Delta (Testing/QA) — 7 members
-    │       └── Team Epsilon (DevOps) — 7 members
-    └── Staff Manager (Casey Nguyen) — GPT-5.2 (Quality)
+    │       ├── Team Epsilon (DevOps) — 7 members
+    │       └── Team Zeta (Security) — 7 members
+    └── Staff Manager (Casey Nguyen) — Claude Opus 4.5 (Quality)
 ```
 
 Each team has: Manager, PM, Senior Developer, 2 Developers, QA Engineer, Test Engineer

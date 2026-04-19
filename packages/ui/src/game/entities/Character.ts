@@ -33,6 +33,8 @@ const STATE_TO_ANIM: Record<AgentState, string> = {
 export class Character extends Phaser.GameObjects.Container {
   readonly agentId: string;
   readonly roleName: string;
+  /** The AgentRole enum value used to look up animations (e.g. "ceo", "developer"). */
+  readonly roleKey: string;
 
   private sprite: Phaser.GameObjects.Sprite;
   private nameLabel: Phaser.GameObjects.Text;
@@ -56,10 +58,12 @@ export class Character extends Phaser.GameObjects.Container {
     agentId: string,
     roleName: string,
     spriteKey: string,
+    roleKey: string,
   ) {
     super(scene, x, y);
     this.agentId = agentId;
     this.roleName = roleName;
+    this.roleKey = roleKey;
 
     // Animated sprite
     this.sprite = new Phaser.GameObjects.Sprite(scene, 0, 0, spriteKey, 0);
@@ -213,7 +217,7 @@ export class Character extends Phaser.GameObjects.Container {
 
   private playStateAnimation(): void {
     const animSuffix = STATE_TO_ANIM[this.currentState];
-    const animKey = `${this.roleName}-${animSuffix}-${this.direction}`;
+    const animKey = `${this.roleKey}-${animSuffix}-${this.direction}`;
 
     if (this.sprite.anims.currentAnim?.key !== animKey) {
       if (this.sprite.anims.animationManager.exists(animKey)) {

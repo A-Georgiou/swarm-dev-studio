@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { PhaserGame } from "./components/PhaserGame";
 import { TaskPanel } from "./components/TaskPanel";
 import { ActivityLog } from "./components/ActivityLog";
 import { ConnectionIndicator } from "./components/ConnectionIndicator";
+import { OrgChart } from "./components/OrgChart";
+import { AgentDetailPanel } from "./components/AgentDetailPanel";
 import { swarmClient, type ConnectionStatus } from "./network/SwarmClient";
 import { gameStateManager } from "./game/GameStateManager";
 
@@ -52,7 +54,6 @@ export const App: React.FC = () => {
 
   const handleSubmitTask = useCallback((title: string, description: string) => {
     if (connectionStatus !== "connected") {
-      // Fallback: POST to REST API
       fetch("http://localhost:3001/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,6 +64,14 @@ export const App: React.FC = () => {
     swarmClient.submitTask(`${title}: ${description}`);
   }, [connectionStatus]);
 
+  const handleSelectAgentFromOrg = useCallback((agentId: string) => {
+    setSelectedAgent(agentId);
+  }, []);
+
+  const handleCloseDetail = useCallback(() => {
+    setSelectedAgent(null);
+  }, []);
+
   return (
     <div style={styles.container}>
       <div style={styles.gameArea}>
@@ -70,11 +79,10 @@ export const App: React.FC = () => {
       </div>
       <div style={styles.sidebar}>
         <ConnectionIndicator status={connectionStatus} />
-        {selectedAgent && (
-          <div style={styles.selectedAgent}>
-            <span style={styles.selectedLabel}>👤 Selected:</span>
-            <span style={styles.selectedId}>{selectedAgent}</span>
-          </div>
+        {selectedAgent ? (
+          <AgentDetailPanel agentId={selectedAgent} onClose={handleCloseDetail} />
+        ) : (
+          <OrgChart onSelectAgent={handleSelectAgentFromOrg} />
         )}
         <TaskPanel onSubmit={handleSubmitTask} />
         <ActivityLog messages={messages} />
@@ -102,24 +110,5 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
-  },
-  selectedAgent: {
-    padding: "8px 12px",
-    backgroundColor: "#1d2b53",
-    borderBottom: "1px solid #30363d",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  selectedLabel: {
-    color: "#8b949e",
-    fontSize: "12px",
-    fontFamily: "monospace",
-  },
-  selectedId: {
-    color: "#ffec27",
-    fontSize: "12px",
-    fontFamily: "monospace",
-    fontWeight: "bold",
   },
 };
