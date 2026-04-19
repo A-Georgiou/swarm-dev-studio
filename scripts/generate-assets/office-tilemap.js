@@ -1,5 +1,5 @@
 // Office tilemap generator — produces a Tiled-compatible JSON map (80×60 tiles)
-// Layout: lobby, corridors, exec offices, 5 team areas, meeting rooms, break room
+// Layout: lobby, corridors, exec offices, 6 team areas, meeting rooms, break room
 
 const path = require('path');
 const fs = require('fs');
@@ -67,13 +67,14 @@ const T = {
 const MAP_W = 80;
 const MAP_H = 60;
 
-// Team carpet tile IDs indexed 0-4 (5 teams used in the map layout)
+// Team carpet tile IDs indexed 0-5 (6 teams used in the map layout)
 const TEAM_CARPETS = [
   T.CARPET_ALPHA,
   T.CARPET_BETA,
   T.CARPET_GAMMA,
   T.CARPET_DELTA,
   T.CARPET_EPSILON,
+  T.CARPET_ZETA,
 ];
 
 // ── Layer helpers ──────────────────────────────────────────────────────────
@@ -435,10 +436,14 @@ function generateOfficeTilemap() {
   buildTeamArea(4, 39, 31, 'epsilon');
   objects.push(makeObj('spawn_team_manager_5', 'spawn', 65, 35, { role: 'team_manager_5' }));
 
+  // Team 6 (zeta — Security)
+  buildTeamArea(5, 55, 31, 'zeta');
+  objects.push(makeObj('spawn_team_manager_6', 'spawn', 71, 35, { role: 'team_manager_6' }));
+
   // ═══════════════════════════════════════════════════════════════════════
-  // 7. Break Room (cols 55-66, rows 31-42) — 12w × 12h
+  // 7. Break Room (cols 15-26, rows 47-55) — 12w × 9h
   // ═══════════════════════════════════════════════════════════════════════
-  const BRK = { x: 55, y: 31, w: 12, h: 12 };
+  const BRK = { x: 15, y: 47, w: 12, h: 9 };
   fillRect(floor, BRK.x, BRK.y, BRK.w, BRK.h, T.TILE_FLOOR);
   drawHLine(walls, BRK.x, BRK.y, BRK.w, T.INT_HORIZ);
   drawHLine(walls, BRK.x, BRK.y + BRK.h - 1, BRK.w, T.INT_HORIZ);
@@ -463,9 +468,9 @@ function generateOfficeTilemap() {
   furniture[idx(BRK.x + 8, BRK.y + 9)] = T.TRASH;
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 8. Large Meeting Room (cols 67-78, rows 31-45) — 12w × 15h
+  // 8. Large Meeting Room (cols 29-40, rows 47-57) — 12w × 11h
   // ═══════════════════════════════════════════════════════════════════════
-  const LRG_MTG = { x: 67, y: 31, w: 12, h: 15 };
+  const LRG_MTG = { x: 29, y: 47, w: 12, h: 11 };
   fillRect(floor, LRG_MTG.x, LRG_MTG.y, LRG_MTG.w, LRG_MTG.h, T.TILE_FLOOR);
   drawHLine(walls, LRG_MTG.x, LRG_MTG.y, LRG_MTG.w, T.INT_HORIZ);
   drawHLine(walls, LRG_MTG.x, LRG_MTG.y + LRG_MTG.h - 1, LRG_MTG.w, T.INT_HORIZ);
@@ -492,10 +497,10 @@ function generateOfficeTilemap() {
   objects.push(makeObj('meeting_spot_large', 'meeting', LRG_MTG.x + 5, LRG_MTG.y + 6, { room: 'large_mtg' }));
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 9. Small Meeting Rooms (3 rooms, row 51-57)
+  // 9. Small Meeting Rooms (3 rooms, cols 43+)
   // ═══════════════════════════════════════════════════════════════════════
   for (let r = 0; r < 3; r++) {
-    const smX = 15 + r * 14;
+    const smX = 43 + r * 12;
     const smY = 51;
     const smW = 10;
     const smH = 7;
@@ -521,9 +526,9 @@ function generateOfficeTilemap() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // 10. Restrooms area (cols 57-66, rows 51-57)
+  // 10. Restrooms area (cols 2-11, rows 51-57)
   // ═══════════════════════════════════════════════════════════════════════
-  const REST = { x: 57, y: 51, w: 10, h: 7 };
+  const REST = { x: 2, y: 51, w: 10, h: 7 };
   fillRect(floor, REST.x, REST.y, REST.w, REST.h, T.TILE_FLOOR);
   drawHLine(walls, REST.x, REST.y, REST.w, T.INT_HORIZ);
   drawHLine(walls, REST.x, REST.y + REST.h - 1, REST.w, T.INT_HORIZ);

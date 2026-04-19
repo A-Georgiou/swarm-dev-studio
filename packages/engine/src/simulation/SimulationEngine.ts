@@ -110,6 +110,7 @@ const MEETING_SPOTS = [
   { x: 60, y: 12 },
   { x: 30, y: 40 },
   { x: 45, y: 40 },
+  { x: 60, y: 40 },
 ];
 
 export class SimulationEngine {

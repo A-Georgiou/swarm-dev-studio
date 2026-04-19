@@ -64,7 +64,7 @@ export const AgentDetailPanel: React.FC<Props> = ({ agentId, onClose }) => {
   useEffect(() => {
     const fetchAgent = async () => {
       try {
-        const res = await fetch("http://localhost:3001/api/agents");
+        const res = await fetch("/api/agents");
         const data = await res.json();
         const found = data.agents.find((a: AgentDetail) => a.id === agentId);
         setAgent(found ?? null);

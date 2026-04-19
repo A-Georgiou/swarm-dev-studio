@@ -11,7 +11,7 @@ A developer swarm system where AI agents work together in a pixel-art office to 
 @swarm/ui       → Phaser 3 pixel-art game + React sidebar
 ```
 
-## Team Structure (49 agents across 6 teams)
+## Team Structure (48 agents across 6 teams)
 
 ```
 CEO (Morgan Blackwell) — Claude Opus 4.6

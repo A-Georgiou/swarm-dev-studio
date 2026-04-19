@@ -54,7 +54,7 @@ export const App: React.FC = () => {
 
   const handleSubmitTask = useCallback((title: string, description: string) => {
     if (connectionStatus !== "connected") {
-      fetch("http://localhost:3001/api/tasks", {
+      fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, description }),

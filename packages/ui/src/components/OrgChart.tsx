@@ -56,8 +56,8 @@ export const OrgChart: React.FC<Props> = ({ onSelectAgent }) => {
     const fetchData = async () => {
       try {
         const [agentsRes, orgRes] = await Promise.all([
-          fetch("http://localhost:3001/api/agents"),
-          fetch("http://localhost:3001/api/org"),
+          fetch("/api/agents"),
+          fetch("/api/org"),
         ]);
         const agentsData = await agentsRes.json();
         const orgDataRes = await orgRes.json();

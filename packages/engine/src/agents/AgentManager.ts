@@ -64,13 +64,13 @@ const DESK_POSITIONS: Record<string, DeskAssignment[]> = {
     { tileX: 65, tileY: 30, direction: "left" },
   ],
   zeta: [
-    { tileX: 80, tileY: 18, direction: "left" },
-    { tileX: 80, tileY: 20, direction: "left" },
-    { tileX: 80, tileY: 22, direction: "left" },
-    { tileX: 80, tileY: 24, direction: "left" },
-    { tileX: 80, tileY: 26, direction: "left" },
-    { tileX: 80, tileY: 28, direction: "left" },
-    { tileX: 80, tileY: 30, direction: "left" },
+    { tileX: 58, tileY: 36, direction: "right" },
+    { tileX: 58, tileY: 38, direction: "right" },
+    { tileX: 58, tileY: 40, direction: "right" },
+    { tileX: 62, tileY: 36, direction: "right" },
+    { tileX: 62, tileY: 38, direction: "right" },
+    { tileX: 62, tileY: 40, direction: "right" },
+    { tileX: 74, tileY: 37, direction: "down" },
   ],
 };
 
