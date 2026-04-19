@@ -142,7 +142,7 @@ export class SimulationEngine {
     this.orgManager.initialize(this.agentManager);
 
     // Initialize messaging channels
-    const teamIds = ["alpha", "beta", "gamma", "delta", "epsilon"];
+    const teamIds = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"];
     const allAgentIds = this.agentManager.getAll().map((a) => a.id);
     this.messageBus.initializeDefaults(teamIds, allAgentIds);
 
@@ -574,13 +574,14 @@ export class SimulationEngine {
     staffMgr.setState(AgentState.Discussing);
     this.emitSpeech(staffMgr.id, "Assigning to team managers.", "normal");
 
-    const teams = ["alpha", "beta", "gamma", "delta", "epsilon"];
+    const teams = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"];
     const teamManagers: Record<string, string> = {
       alpha: "alpha-mgr-priya",
       beta: "beta-mgr-devon",
       gamma: "gamma-mgr-iris",
       delta: "delta-mgr-chen",
       epsilon: "epsilon-mgr-nora",
+      zeta: "zeta-mgr-diana",
     };
 
     // Distribute tasks across teams round-robin
@@ -730,6 +731,16 @@ export class SimulationEngine {
         estimatedComplexity: "medium",
         requiredSkills: ["infrastructure", "devops"],
         suggestedAssignee: "gamma-mgr-iris",
+      });
+    }
+
+    if (desc.includes("security") || desc.includes("auth") || desc.includes("login") || desc.includes("encrypt") || desc.includes("vulnerability") || desc.includes("compliance")) {
+      subs.push({
+        title: `Security review for ${task.title}`,
+        description: `Perform security audit, threat modeling, and hardening for: ${task.description}`,
+        estimatedComplexity: "medium",
+        requiredSkills: ["security", "auth"],
+        suggestedAssignee: "zeta-mgr-diana",
       });
     }
 

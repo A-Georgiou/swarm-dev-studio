@@ -63,6 +63,15 @@ const DESK_POSITIONS: Record<string, DeskAssignment[]> = {
     { tileX: 65, tileY: 28, direction: "left" },
     { tileX: 65, tileY: 30, direction: "left" },
   ],
+  zeta: [
+    { tileX: 80, tileY: 18, direction: "left" },
+    { tileX: 80, tileY: 20, direction: "left" },
+    { tileX: 80, tileY: 22, direction: "left" },
+    { tileX: 80, tileY: 24, direction: "left" },
+    { tileX: 80, tileY: 26, direction: "left" },
+    { tileX: 80, tileY: 28, direction: "left" },
+    { tileX: 80, tileY: 30, direction: "left" },
+  ],
 };
 
 export class AgentManager {

@@ -52,6 +52,14 @@ const REPORTING_CHAIN: Record<string, string> = {
   "epsilon-dev-rio": "epsilon-mgr-nora",
   "epsilon-qa-vera": "epsilon-mgr-nora",
   "epsilon-tester-max": "epsilon-mgr-nora",
+  // Team Zeta reports to sr-mgr-sam
+  "zeta-mgr-diana": "sr-mgr-sam",
+  "zeta-pm-rohan": "zeta-mgr-diana",
+  "zeta-sr-dev-elena2": "zeta-mgr-diana",
+  "zeta-dev-kofi": "zeta-mgr-diana",
+  "zeta-dev-mei": "zeta-mgr-diana",
+  "zeta-qa-sven": "zeta-mgr-diana",
+  "zeta-tester-fatima": "zeta-mgr-diana",
 };
 
 export class OrgManager {
@@ -61,7 +69,7 @@ export class OrgManager {
 
   /** Build the full org chart from the agent manager. */
   initialize(agentManager: AgentManager): void {
-    const teamIds = ["alpha", "beta", "gamma", "delta", "epsilon"];
+    const teamIds = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"];
     this._teams = teamIds.map((teamId) => {
       const teamAgents = agentManager.getByTeam(teamId);
       const manager = teamAgents.find(
@@ -129,10 +137,11 @@ export class OrgManager {
   suggestTeam(keywords: string[]): string {
     const teamKeywords: Record<string, string[]> = {
       alpha: ["frontend", "ui", "ux", "design", "react", "css", "component", "page", "view"],
-      beta: ["backend", "api", "server", "database", "rest", "graphql", "endpoint", "auth"],
+      beta: ["backend", "api", "server", "database", "rest", "graphql", "endpoint"],
       gamma: ["data", "infrastructure", "pipeline", "analytics", "ml", "scale", "performance"],
-      delta: ["test", "qa", "quality", "security", "vulnerability", "coverage", "e2e"],
+      delta: ["test", "qa", "quality", "coverage", "e2e"],
       epsilon: ["devops", "deploy", "ci", "cd", "docker", "kubernetes", "monitoring", "platform"],
+      zeta: ["security", "auth", "vulnerability", "pentest", "encryption", "compliance", "oauth", "login"],
     };
 
     const scores: Record<string, number> = {};

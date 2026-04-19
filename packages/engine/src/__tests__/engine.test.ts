@@ -47,18 +47,18 @@ describe("AgentManager", () => {
     assert.equal(ctos.length, 1);
   });
 
-  it("should have 5 team managers", () => {
+  it("should have 6 team managers", () => {
     const managers = manager.getByRole(AgentRole.Manager);
-    assert.equal(managers.length, 5);
+    assert.equal(managers.length, 6);
   });
 
-  it("should have 5 PMs", () => {
+  it("should have 6 PMs", () => {
     const pms = manager.getByRole(AgentRole.PM);
-    assert.equal(pms.length, 5);
+    assert.equal(pms.length, 6);
   });
 
-  it("should have agents in all 5 teams", () => {
-    const teamIds = ["alpha", "beta", "gamma", "delta", "epsilon"];
+  it("should have agents in all 6 teams", () => {
+    const teamIds = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"];
     for (const teamId of teamIds) {
       const members = manager.getByTeam(teamId);
       assert.ok(members.length >= 7, `Team ${teamId} has ${members.length} members`);
@@ -96,7 +96,7 @@ describe("OrgManager", () => {
     const chart = orgManager.getOrgChart();
     assert.equal(chart.ceo, "ceo-morgan");
     assert.equal(chart.cto, "cto-aria");
-    assert.equal(chart.teams.length, 5);
+    assert.equal(chart.teams.length, 6);
   });
 
   it("should track reporting chains", () => {
