@@ -398,7 +398,7 @@ export class SimulationEngine {
     });
 
     // Return to idle after a bit
-    setTimeout(() => {
+    this.scheduleAgentActivity(agent.id, 2000, () => {
       if (agent.state === AgentState.Walking) {
         agent.setState(AgentState.Idle);
         agent.setPosition(agent.desk!.tileX, agent.desk!.tileY);
@@ -408,7 +408,7 @@ export class SimulationEngine {
         });
         this.emitStateChange(agent.id, AgentState.Walking, AgentState.Idle);
       }
-    }, 2000);
+    });
   }
 
   private startRandomInteraction(agent: Agent): void {
@@ -426,16 +426,23 @@ export class SimulationEngine {
     this.emitStateChange(agent.id, AgentState.Idle, AgentState.Discussing);
     this.emitStateChange(partner.id, AgentState.Idle, AgentState.Discussing);
 
-    // Send a message
+    // Send a threaded conversation
+    const threadId = `thread-discuss-${Date.now()}`;
     this.messageBus.sendDirect(
       agent.id,
       partner.id,
       this.getPhrase(agent, AgentState.Discussing)
     );
 
-    setTimeout(() => {
+    // Partner responds in the same thread
+    this.scheduleAgentActivity(partner.id, 1500, () => {
       this.emitSpeech(partner.id, this.getPhrase(partner, AgentState.Discussing), "normal");
-    }, 1500);
+      this.messageBus.sendDirect(
+        partner.id,
+        agent.id,
+        this.getPhrase(partner, AgentState.Discussing)
+      );
+    });
   }
 
   private workOnTask(agent: Agent): void {
@@ -487,12 +494,46 @@ export class SimulationEngine {
     }
   }
 
+  // ── Org hierarchy mapping ──────────────────────────────────
+
+  /** Teams managed by each senior manager. */
+  private static readonly SR_MGR_TEAMS: Record<string, string[]> = {
+    "sr-mgr-alex": ["alpha", "beta"],
+    "sr-mgr-sam": ["gamma", "delta", "epsilon", "zeta"],
+  };
+
+  /** Which staff manager oversees which senior managers. */
+  private static readonly STAFF_MGR_REPORTS: Record<string, string[]> = {
+    "staff-mgr-jordan": ["sr-mgr-alex", "sr-mgr-sam"],
+    "staff-mgr-casey": ["sr-mgr-alex", "sr-mgr-sam"],
+  };
+
+  private static readonly TEAM_MANAGERS: Record<string, string> = {
+    alpha: "alpha-mgr-priya",
+    beta: "beta-mgr-devon",
+    gamma: "gamma-mgr-iris",
+    delta: "delta-mgr-chen",
+    epsilon: "epsilon-mgr-nora",
+    zeta: "zeta-mgr-diana",
+  };
+
   // ── CEO delegation chain ──────────────────────────────────
 
   private ceoDelegate(task: Task): void {
     const ceo = this.agentManager.get("ceo-morgan")!;
     ceo.setState(AgentState.Discussing);
     this.emitStateChange(ceo.id, AgentState.Thinking, AgentState.Discussing);
+
+    // CEO creates a planning document with strategic direction
+    this.taskManager.createPlanningDoc(task.id, ceo.id, {
+      summary: `Strategic goal: ${task.title}`,
+      analysis: `User request received: ${task.description}. Routing to CTO for technical decomposition.`,
+      approach: "Delegate to CTO for architecture, then distribute through management chain.",
+      decomposition: [],
+      risks: ["Scope creep", "Cross-team dependencies"],
+      dependencies: [],
+    });
+
     this.emitSpeech(ceo.id, "Delegating to CTO. This needs technical planning.", "normal");
 
     this.taskManager.updateStatus(task.id, TaskStatus.Planning);
@@ -504,12 +545,25 @@ export class SimulationEngine {
     this.emitStateChange(cto.id, AgentState.Idle, AgentState.Thinking);
     this.emitSpeech(cto.id, "Let me architect this...", "thinking");
 
+    // CEO → CTO conversation
+    const threadId = `thread-${task.id}-ceo-cto`;
     this.messageBus.sendDirect(
       ceo.id,
       cto.id,
-      `New strategic task: "${task.title}". Please create a technical plan.`,
+      `New strategic task: "${task.title}". Please create a technical plan. Description: ${task.description}`,
       MessageType.TaskAssign
     );
+
+    // CTO responds with acknowledgement
+    this.scheduleAgentActivity(ceo.id, 1500, () => {
+      this.messageBus.sendDirect(
+        cto.id,
+        ceo.id,
+        `Understood. I'll analyze the architecture requirements and create a decomposition plan.`,
+        MessageType.Chat
+      );
+      this.emitSpeech(cto.id, "I'll analyze the architecture.", "normal");
+    });
 
     this.scheduleAgentActivity(
       "cto-aria",
@@ -518,11 +572,11 @@ export class SimulationEngine {
     );
 
     // CEO goes back to idle
-    setTimeout(() => {
+    this.scheduleAgentActivity(ceo.id, 3000, () => {
       ceo.setState(AgentState.Idle);
       ceo.assignTask(null);
       this.emitStateChange(ceo.id, AgentState.Discussing, AgentState.Idle);
-    }, 3000);
+    });
   }
 
   private ctoDecompose(task: Task): void {
@@ -542,97 +596,322 @@ export class SimulationEngine {
 
     const children = this.taskManager.decompose(task.id, subtasks, assigneeMap);
 
-    // Delegate to staff managers
+    // CTO creates planning document with technical decomposition
+    this.taskManager.createPlanningDoc(task.id, cto.id, {
+      summary: `Technical plan for: ${task.title}`,
+      analysis: `Decomposed into ${children.length} sub-tasks across relevant teams.`,
+      approach: "Distribute through staff managers: Jordan (delivery coordination) and Casey (quality assurance).",
+      decomposition: subtasks,
+      risks: ["Integration complexity across teams", "Data model consistency"],
+      dependencies: children.map((c) => c.id),
+    });
+
+    // Separate tasks: delivery tasks go to Jordan, QA/testing tasks go to Casey
+    const deliveryTasks: Task[] = [];
+    const qualityTasks: Task[] = [];
+
+    for (const child of children) {
+      const desc = child.description.toLowerCase();
+      if (desc.includes("test") || desc.includes("qa") || desc.includes("quality") || desc.includes("security review")) {
+        qualityTasks.push(child);
+      } else {
+        deliveryTasks.push(child);
+      }
+    }
+
+    // Delegate delivery tasks to Staff Manager Jordan
+    const jordan = this.agentManager.get("staff-mgr-jordan")!;
+    jordan.setState(AgentState.Thinking);
+    this.emitStateChange(jordan.id, AgentState.Idle, AgentState.Thinking);
+    this.emitSpeech(jordan.id, "Coordinating delivery teams...", "thinking");
+
     this.messageBus.sendDirect(
       cto.id,
-      "staff-mgr-jordan",
-      `Technical plan ready for "${task.title}". ${children.length} sub-tasks created. Please coordinate.`,
+      jordan.id,
+      `Technical plan ready for "${task.title}". ${deliveryTasks.length} delivery tasks need coordination. Please route to senior managers.`,
       MessageType.TaskAssign
     );
 
-    const staffMgr = this.agentManager.get("staff-mgr-jordan")!;
-    staffMgr.setState(AgentState.Thinking);
-    this.emitStateChange(staffMgr.id, AgentState.Idle, AgentState.Thinking);
-    this.emitSpeech(staffMgr.id, "Coordinating the teams...", "thinking");
+    // Jordan acknowledges
+    this.scheduleAgentActivity(jordan.id, 1500, () => {
+      this.messageBus.sendDirect(
+        jordan.id,
+        cto.id,
+        `Got it. I'll align the teams and ensure cross-team dependencies are handled.`,
+        MessageType.Chat
+      );
+      this.emitSpeech(jordan.id, "Let me sync the teams.", "normal");
+    });
 
-    // Staff manager delegates to team managers
     this.scheduleAgentActivity(
-      "staff-mgr-jordan",
+      jordan.id,
       this.config.agentThinkDurationMs,
-      () => this.staffManagerDelegate(children)
+      () => this.staffManagerJordanDelegate(deliveryTasks, task)
     );
 
-    // CTO goes back to idle
-    setTimeout(() => {
-      cto.setState(AgentState.Idle);
-      cto.assignTask(null);
-      this.emitStateChange(cto.id, AgentState.Discussing, AgentState.Idle);
-    }, 3000);
-  }
-
-  private staffManagerDelegate(tasks: Task[]): void {
-    const staffMgr = this.agentManager.get("staff-mgr-jordan")!;
-    staffMgr.setState(AgentState.Discussing);
-    this.emitSpeech(staffMgr.id, "Assigning to team managers.", "normal");
-
-    const teams = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"];
-    const teamManagers: Record<string, string> = {
-      alpha: "alpha-mgr-priya",
-      beta: "beta-mgr-devon",
-      gamma: "gamma-mgr-iris",
-      delta: "delta-mgr-chen",
-      epsilon: "epsilon-mgr-nora",
-      zeta: "zeta-mgr-diana",
-    };
-
-    // Distribute tasks across teams round-robin
-    for (let i = 0; i < tasks.length; i++) {
-      const teamId = teams[i % teams.length];
-      const managerId = teamManagers[teamId];
-      const task = tasks[i];
-
-      this.taskManager.assign(task.id, managerId);
-
-      const manager = this.agentManager.get(managerId)!;
-      manager.setState(AgentState.Thinking);
-      manager.assignTask(task.id);
-      this.emitStateChange(manager.id, AgentState.Idle, AgentState.Thinking);
-      this.emitSpeech(manager.id, `Reviewing task: ${task.title}`, "thinking");
+    // Delegate quality tasks to Staff Manager Casey
+    if (qualityTasks.length > 0) {
+      const casey = this.agentManager.get("staff-mgr-casey")!;
+      casey.setState(AgentState.Thinking);
+      this.emitStateChange(casey.id, AgentState.Idle, AgentState.Thinking);
+      this.emitSpeech(casey.id, "Reviewing quality requirements...", "thinking");
 
       this.messageBus.sendDirect(
-        staffMgr.id,
-        managerId,
-        `Assigned task: "${task.title}". Please plan and delegate to your team.`,
+        cto.id,
+        casey.id,
+        `Quality assurance needed for "${task.title}". ${qualityTasks.length} tasks require test plans and reviews.`,
         MessageType.TaskAssign
       );
 
-      // Each team manager delegates to their team
+      // Casey acknowledges
+      this.scheduleAgentActivity(casey.id, 1500, () => {
+        this.messageBus.sendDirect(
+          casey.id,
+          cto.id,
+          `Quality is non-negotiable. I'll ensure comprehensive test coverage and review.`,
+          MessageType.Chat
+        );
+        this.emitSpeech(casey.id, "Did we test this?", "normal");
+      });
+
       this.scheduleAgentActivity(
-        managerId,
-        this.config.agentThinkDurationMs + i * 2000,
-        () => this.teamManagerDelegate(managerId, task)
+        casey.id,
+        this.config.agentThinkDurationMs,
+        () => this.staffManagerCaseyDelegate(qualityTasks, task)
       );
+    } else {
+      // Even if no explicit QA tasks, Casey reviews overall quality
+      const casey = this.agentManager.get("staff-mgr-casey")!;
+      casey.setState(AgentState.Reviewing);
+      this.emitStateChange(casey.id, AgentState.Idle, AgentState.Reviewing);
+      this.emitSpeech(casey.id, "Let's review the metrics.", "normal");
+
+      this.messageBus.sendDirect(
+        cto.id,
+        casey.id,
+        `FYI: "${task.title}" is being delivered. Please oversee quality standards across teams.`,
+        MessageType.Chat
+      );
+
+      this.scheduleAgentActivity(casey.id, this.config.agentReviewDurationMs, () => {
+        casey.setState(AgentState.Idle);
+        this.emitStateChange(casey.id, AgentState.Reviewing, AgentState.Idle);
+      });
     }
 
-    setTimeout(() => {
-      staffMgr.setState(AgentState.Idle);
-      this.emitStateChange(staffMgr.id, AgentState.Discussing, AgentState.Idle);
-    }, 3000);
+    // CTO goes back to idle
+    this.scheduleAgentActivity(cto.id, 3000, () => {
+      cto.setState(AgentState.Idle);
+      cto.assignTask(null);
+      this.emitStateChange(cto.id, AgentState.Discussing, AgentState.Idle);
+    });
   }
 
+  /** Jordan routes delivery tasks through the correct senior manager. */
+  private staffManagerJordanDelegate(tasks: Task[], parentTask: Task): void {
+    const jordan = this.agentManager.get("staff-mgr-jordan")!;
+    jordan.setState(AgentState.Discussing);
+    this.emitSpeech(jordan.id, "Routing tasks to senior managers.", "normal");
+
+    // Create planning doc
+    this.taskManager.createPlanningDoc(parentTask.id, jordan.id, {
+      summary: `Delivery coordination for: ${parentTask.title}`,
+      analysis: `${tasks.length} delivery tasks. Routing through senior managers based on team alignment.`,
+      approach: "Alex handles Alpha/Beta (frontend/backend), Sam handles Gamma/Delta/Epsilon/Zeta (data/QA/devops/security).",
+      decomposition: [],
+      risks: ["Cross-team integration timing"],
+      dependencies: tasks.map((t) => t.id),
+    });
+
+    // Route each task to the right senior manager based on the assignee's team
+    const alexTasks: Task[] = [];
+    const samTasks: Task[] = [];
+
+    for (const task of tasks) {
+      const assigneeTeam = this.getTeamFromAssignee(task.assignedTo);
+      if (SimulationEngine.SR_MGR_TEAMS["sr-mgr-alex"].includes(assigneeTeam)) {
+        alexTasks.push(task);
+      } else {
+        samTasks.push(task);
+      }
+    }
+
+    // Delegate to Senior Manager Alex
+    if (alexTasks.length > 0) {
+      this.delegateToSeniorManager("sr-mgr-alex", alexTasks, jordan.id);
+    }
+
+    // Delegate to Senior Manager Sam
+    if (samTasks.length > 0) {
+      this.delegateToSeniorManager("sr-mgr-sam", samTasks, jordan.id);
+    }
+
+    this.scheduleAgentActivity(jordan.id, 3000, () => {
+      jordan.setState(AgentState.Idle);
+      this.emitStateChange(jordan.id, AgentState.Discussing, AgentState.Idle);
+    });
+  }
+
+  /** Casey routes quality/testing tasks through senior managers. */
+  private staffManagerCaseyDelegate(tasks: Task[], parentTask: Task): void {
+    const casey = this.agentManager.get("staff-mgr-casey")!;
+    casey.setState(AgentState.Discussing);
+    this.emitSpeech(casey.id, "Coordinating quality assurance.", "normal");
+
+    this.taskManager.createPlanningDoc(parentTask.id, casey.id, {
+      summary: `Quality plan for: ${parentTask.title}`,
+      analysis: `${tasks.length} QA/testing tasks. Ensuring comprehensive test coverage.`,
+      approach: "Route testing tasks through senior managers to reach the right teams.",
+      decomposition: [],
+      risks: ["Insufficient test coverage", "Missing edge cases"],
+      dependencies: tasks.map((t) => t.id),
+    });
+
+    // Route through senior managers
+    const alexTasks: Task[] = [];
+    const samTasks: Task[] = [];
+
+    for (const task of tasks) {
+      const assigneeTeam = this.getTeamFromAssignee(task.assignedTo);
+      if (SimulationEngine.SR_MGR_TEAMS["sr-mgr-alex"].includes(assigneeTeam)) {
+        alexTasks.push(task);
+      } else {
+        samTasks.push(task);
+      }
+    }
+
+    if (alexTasks.length > 0) {
+      this.delegateToSeniorManager("sr-mgr-alex", alexTasks, casey.id);
+    }
+    if (samTasks.length > 0) {
+      this.delegateToSeniorManager("sr-mgr-sam", samTasks, casey.id);
+    }
+
+    // Casey asks for quality confirmation
+    this.scheduleAgentActivity(casey.id, 2000, () => {
+      for (const task of tasks) {
+        const managerId = SimulationEngine.TEAM_MANAGERS[this.getTeamFromAssignee(task.assignedTo)] ?? "";
+        if (managerId) {
+          this.messageBus.sendDirect(
+            casey.id,
+            managerId,
+            `Please ensure test plans are created for: "${task.title}". Quality is non-negotiable.`,
+            MessageType.Chat
+          );
+        }
+      }
+    });
+
+    this.scheduleAgentActivity(casey.id, 4000, () => {
+      casey.setState(AgentState.Idle);
+      this.emitStateChange(casey.id, AgentState.Discussing, AgentState.Idle);
+    });
+  }
+
+  /** Senior manager reviews and delegates to appropriate team managers. */
+  private delegateToSeniorManager(srMgrId: string, tasks: Task[], fromId: string): void {
+    const srMgr = this.agentManager.get(srMgrId)!;
+    srMgr.setState(AgentState.Thinking);
+    this.emitStateChange(srMgr.id, AgentState.Idle, AgentState.Thinking);
+    this.emitSpeech(srMgr.id, `Reviewing ${tasks.length} tasks for my teams.`, "thinking");
+
+    this.messageBus.sendDirect(
+      fromId,
+      srMgrId,
+      `${tasks.length} tasks for your teams. Please review and delegate to team managers.`,
+      MessageType.TaskAssign
+    );
+
+    // Sr Manager responds
+    this.scheduleAgentActivity(srMgrId, 1500, () => {
+      this.messageBus.sendDirect(
+        srMgrId,
+        fromId,
+        `Reviewing now. I'll make sure teams are unblocked and aligned.`,
+        MessageType.Chat
+      );
+      this.emitSpeech(srMgr.id, this.getPhrase(srMgr, AgentState.Thinking), "normal");
+    });
+
+    // Sr Manager delegates to team managers
+    this.scheduleAgentActivity(srMgrId, this.config.agentThinkDurationMs, () => {
+      srMgr.setState(AgentState.Meeting);
+      this.emitStateChange(srMgr.id, AgentState.Thinking, AgentState.Meeting);
+      this.emitSpeech(srMgr.id, "Meeting with team managers.", "normal");
+
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        const teamId = this.getTeamFromAssignee(task.assignedTo);
+        const managerId = SimulationEngine.TEAM_MANAGERS[teamId];
+        if (!managerId) continue;
+
+        this.taskManager.assign(task.id, managerId);
+
+        this.messageBus.sendDirect(
+          srMgrId,
+          managerId,
+          `Assigned task: "${task.title}". Please plan with your team and delegate. Context: ${task.description}`,
+          MessageType.TaskAssign
+        );
+
+        const manager = this.agentManager.get(managerId)!;
+        manager.setState(AgentState.Thinking);
+        manager.assignTask(task.id);
+        this.emitStateChange(manager.id, AgentState.Idle, AgentState.Thinking);
+        this.emitSpeech(manager.id, `Reviewing task: ${task.title}`, "thinking");
+
+        // Manager acknowledges to senior manager
+        this.scheduleAgentActivity(managerId, 1500, () => {
+          this.messageBus.sendDirect(
+            managerId,
+            srMgrId,
+            `I'll review this with my team and create an implementation plan.`,
+            MessageType.Chat
+          );
+        });
+
+        // Team manager delegates to their team
+        this.scheduleAgentActivity(
+          managerId,
+          this.config.agentThinkDurationMs + i * 2000,
+          () => this.teamManagerDelegate(managerId, task)
+        );
+      }
+
+      // Sr Manager goes idle
+      this.scheduleAgentActivity(srMgrId, this.config.agentMeetingDurationMs, () => {
+        srMgr.setState(AgentState.Idle);
+        this.emitStateChange(srMgr.id, AgentState.Meeting, AgentState.Idle);
+      });
+    });
+  }
+
+  /** Team manager plans with their team and delegates to developers + QA. */
   private teamManagerDelegate(managerId: string, task: Task): void {
     const manager = this.agentManager.get(managerId)!;
     manager.setState(AgentState.Meeting);
     this.emitSpeech(manager.id, "Team standup! New task incoming.", "exclaim");
     this.emitStateChange(manager.id, AgentState.Thinking, AgentState.Meeting);
 
-    // Find developers on this team
     const teamMembers = this.agentManager.getByTeam(manager.teamId);
     const developers = teamMembers.filter(
       (a) =>
         a.role === AgentRole.Developer ||
         a.role === AgentRole.SeniorDeveloper
     );
+    const qa = teamMembers.find((a) => a.role === AgentRole.QA);
+    const tester = teamMembers.find((a) => a.role === AgentRole.Tester);
+    const pm = teamMembers.find((a) => a.role === AgentRole.PM);
+
+    // Manager creates a planning doc for their team's work
+    this.taskManager.createPlanningDoc(task.id, managerId, {
+      summary: `Team ${manager.teamId} implementation plan for: ${task.title}`,
+      analysis: `${developers.length} developers available. QA and tester will review.`,
+      approach: `Senior dev leads implementation, junior devs handle specific modules. QA defines test criteria upfront.`,
+      decomposition: this.generateImplementationTasks(task, developers),
+      risks: ["Developer availability", "Unclear requirements"],
+      dependencies: [],
+    });
 
     // Create implementation sub-tasks
     const implTasks = this.generateImplementationTasks(task, developers);
@@ -645,6 +924,102 @@ export class SimulationEngine {
     }
 
     const children = this.taskManager.decompose(task.id, implTasks, assigneeMap);
+
+    // PM updates project tracking
+    if (pm) {
+      pm.setState(AgentState.Thinking);
+      this.emitSpeech(pm.id, "Updating project board.", "normal");
+      this.emitStateChange(pm.id, AgentState.Idle, AgentState.Thinking);
+
+      this.messageBus.sendDirect(
+        manager.id,
+        pm.id,
+        `New task decomposed: "${task.title}". ${children.length} sub-tasks created. Please track progress.`,
+        MessageType.Chat
+      );
+
+      // PM responds with update
+      this.scheduleAgentActivity(pm.id, 2000, () => {
+        this.messageBus.sendDirect(
+          pm.id,
+          manager.id,
+          `Board updated. I'll track milestones and flag any blockers.`,
+          MessageType.Chat
+        );
+        this.emitSpeech(pm.id, this.getPhrase(pm, AgentState.Thinking), "normal");
+      });
+
+      this.scheduleAgentActivity(pm.id, 4000, () => {
+        pm.setState(AgentState.Idle);
+        this.emitStateChange(pm.id, AgentState.Thinking, AgentState.Idle);
+      });
+    }
+
+    // QA gets involved proactively in planning — defines acceptance criteria
+    if (qa) {
+      qa.setState(AgentState.Thinking);
+      this.emitSpeech(qa.id, "Defining test criteria upfront.", "thinking");
+      this.emitStateChange(qa.id, AgentState.Idle, AgentState.Thinking);
+
+      this.messageBus.sendDirect(
+        manager.id,
+        qa.id,
+        `New task: "${task.title}". Please define acceptance criteria and test plan before coding begins.`,
+        MessageType.TaskAssign
+      );
+
+      // QA responds with test requirements
+      this.scheduleAgentActivity(qa.id, 2000, () => {
+        this.messageBus.sendDirect(
+          qa.id,
+          manager.id,
+          `Test plan created. Key acceptance criteria defined. I'll review code when ready.`,
+          MessageType.Chat
+        );
+        this.emitSpeech(qa.id, this.getPhrase(qa, AgentState.Thinking), "normal");
+
+        // QA also communicates directly with developers
+        for (const dev of developers) {
+          this.messageBus.sendDirect(
+            qa.id,
+            dev.id,
+            `Acceptance criteria for "${task.title}": ensure edge cases are covered. I'll review your PR.`,
+            MessageType.Chat
+          );
+        }
+      });
+
+      this.scheduleAgentActivity(qa.id, 5000, () => {
+        qa.setState(AgentState.Idle);
+        this.emitStateChange(qa.id, AgentState.Thinking, AgentState.Idle);
+      });
+    }
+
+    // Tester prepares test environment
+    if (tester) {
+      tester.setState(AgentState.Thinking);
+      this.emitSpeech(tester.id, "Setting up test environment.", "normal");
+      this.emitStateChange(tester.id, AgentState.Idle, AgentState.Thinking);
+
+      this.messageBus.sendDirect(
+        manager.id,
+        tester.id,
+        `Prepare test environment for: "${task.title}". Automated test suite needed.`,
+        MessageType.Chat
+      );
+
+      this.scheduleAgentActivity(tester.id, 3000, () => {
+        this.messageBus.sendDirect(
+          tester.id,
+          manager.id,
+          `Test environment ready. Automated suite prepared. Will run on each PR.`,
+          MessageType.Chat
+        );
+        this.emitSpeech(tester.id, this.getPhrase(tester, AgentState.Thinking), "normal");
+        tester.setState(AgentState.Idle);
+        this.emitStateChange(tester.id, AgentState.Thinking, AgentState.Idle);
+      });
+    }
 
     // Assign to developers
     for (let i = 0; i < children.length && i < developers.length; i++) {
@@ -664,7 +1039,28 @@ export class SimulationEngine {
         MessageType.TaskAssign
       );
 
-      // Developer starts working
+      // Developer asks clarifying questions
+      this.scheduleAgentActivity(dev.id, 2000 + i * 1000, () => {
+        this.messageBus.sendDirect(
+          dev.id,
+          manager.id,
+          `Quick question on "${childTask.title}" — should I prioritize performance or flexibility?`,
+          MessageType.Chat
+        );
+        this.emitSpeech(dev.id, this.getPhrase(dev, AgentState.Discussing), "normal");
+      });
+
+      // Manager responds to developer question
+      this.scheduleAgentActivity(manager.id, 3500 + i * 1000, () => {
+        this.messageBus.sendDirect(
+          manager.id,
+          dev.id,
+          `Good question. Prioritize correctness first, then optimize. Follow the team patterns.`,
+          MessageType.Chat
+        );
+      });
+
+      // Developer starts coding after discussion
       this.scheduleAgentActivity(
         dev.id,
         this.config.agentThinkDurationMs + i * 3000,
@@ -677,24 +1073,23 @@ export class SimulationEngine {
       );
     }
 
-    // Notify PM
-    const pm = teamMembers.find((a) => a.role === AgentRole.PM);
-    if (pm) {
-      pm.setState(AgentState.Thinking);
-      this.emitSpeech(pm.id, "Updating project board.", "normal");
-      this.emitStateChange(pm.id, AgentState.Idle, AgentState.Thinking);
-      setTimeout(() => {
-        pm.setState(AgentState.Idle);
-        this.emitStateChange(pm.id, AgentState.Thinking, AgentState.Idle);
-      }, 4000);
-    }
-
     // Manager goes back to idle after meeting
-    setTimeout(() => {
+    this.scheduleAgentActivity(manager.id, this.config.agentMeetingDurationMs, () => {
       manager.setState(AgentState.Idle);
       manager.assignTask(null);
       this.emitStateChange(manager.id, AgentState.Meeting, AgentState.Idle);
-    }, this.config.agentMeetingDurationMs);
+    });
+  }
+
+  /** Get team ID from an agent's assigned team (for routing). */
+  private getTeamFromAssignee(assigneeId: string): string {
+    const agent = this.agentManager.get(assigneeId);
+    if (agent) return agent.teamId;
+    // Extract team prefix from agent ID as fallback
+    const prefix = assigneeId.split("-")[0];
+    return prefix === "alpha" || prefix === "beta" || prefix === "gamma" ||
+           prefix === "delta" || prefix === "epsilon" || prefix === "zeta"
+      ? prefix : "alpha";
   }
 
   // ── Task generation helpers ───────────────────────────────

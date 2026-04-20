@@ -253,3 +253,178 @@ describe("SimulationEngine", () => {
     assert.ok(!engine.isRunning);
   });
 });
+
+// ── Full Delegation Chain Tests ──────────────────────────────
+
+describe("Delegation Chain", () => {
+  it("should activate both staff managers during delegation", async () => {
+    const engine = new SimulationEngine({
+      tickIntervalMs: 50,
+      agentThinkDurationMs: 100,
+      agentCodeDurationMs: 100,
+      agentMeetingDurationMs: 100,
+      agentReviewDurationMs: 100,
+    });
+    engine.initialize();
+
+    const stateChanges: Array<{ agentId: string; type: string }> = [];
+    engine.onEvent((e) => {
+      if (e.type === "agent-state-changed") {
+        stateChanges.push({
+          agentId: e.payload.agentId as string,
+          type: e.type,
+        });
+      }
+    });
+
+    engine.submitTask("Build auth system", "User authentication with OAuth and security review");
+    engine.start();
+
+    // Wait for scheduled activities to fire through ticks
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    engine.stop();
+
+    // Both staff managers should receive state changes
+    const jordanChanges = stateChanges.filter((e) => e.agentId === "staff-mgr-jordan");
+    const caseyChanges = stateChanges.filter((e) => e.agentId === "staff-mgr-casey");
+    assert.ok(jordanChanges.length > 0, "Jordan should have state changes");
+    assert.ok(caseyChanges.length > 0, "Casey should have state changes");
+  });
+
+  it("should create planning documents during delegation", async () => {
+    const engine2 = new SimulationEngine({
+      tickIntervalMs: 50,
+      agentThinkDurationMs: 100,
+    });
+    engine2.initialize();
+
+    const task = engine2.submitTask("Build a dashboard", "Analytics dashboard with charts");
+    engine2.start();
+
+    // Wait for CEO and CTO planning
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    engine2.stop();
+
+    const docs = engine2.taskManager.getPlanningDocs(task.id);
+    assert.ok(docs.length > 0, `Should have planning docs but found ${docs.length}`);
+
+    // CEO should have authored a doc
+    const ceoDocs = docs.filter((d) => d.authorAgentId === "ceo-morgan");
+    assert.ok(ceoDocs.length > 0, "CEO should create a planning document");
+  });
+
+  it("should route through senior managers", async () => {
+    const messages: Array<{ senderId: string; content: string }> = [];
+    const engine3 = new SimulationEngine({
+      tickIntervalMs: 50,
+      agentThinkDurationMs: 100,
+    });
+    engine3.initialize();
+    engine3.messageBus.onMessage((msg) => {
+      messages.push({ senderId: msg.senderId, content: msg.content });
+    });
+
+    engine3.submitTask("Build frontend app", "React frontend with components");
+    engine3.start();
+
+    // Wait for delegation chain
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    engine3.stop();
+
+    // Check sr-mgr-alex or sr-mgr-sam received messages
+    const srMgrMessages = messages.filter(
+      (m) => m.senderId === "sr-mgr-alex" || m.senderId === "sr-mgr-sam"
+    );
+    assert.ok(srMgrMessages.length > 0, "Senior managers should participate in delegation");
+  });
+
+  it("should include QA in proactive planning", async () => {
+    const messages: Array<{ senderId: string; content: string }> = [];
+    const engine4 = new SimulationEngine({
+      tickIntervalMs: 50,
+      agentThinkDurationMs: 100,
+      agentMeetingDurationMs: 100,
+    });
+    engine4.initialize();
+    engine4.messageBus.onMessage((msg) => {
+      messages.push({ senderId: msg.senderId, content: msg.content });
+    });
+
+    engine4.submitTask("Build API", "REST API for user management");
+    engine4.start();
+
+    // Wait for full delegation through to team level
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    engine4.stop();
+
+    // QA agents should send messages (proactive involvement)
+    const qaMessages = messages.filter(
+      (m) =>
+        m.senderId.includes("-qa-") ||
+        m.senderId.includes("-tester-")
+    );
+    assert.ok(qaMessages.length > 0, "QA/Testers should participate proactively");
+  });
+
+  it("should have back-and-forth conversations", async () => {
+    const messages: Array<{ senderId: string; content: string }> = [];
+    const engine5 = new SimulationEngine({
+      tickIntervalMs: 50,
+      agentThinkDurationMs: 100,
+    });
+    engine5.initialize();
+    engine5.messageBus.onMessage((msg) => {
+      messages.push({ senderId: msg.senderId, content: msg.content });
+    });
+
+    engine5.submitTask("Build search feature", "Full-text search with filters");
+    engine5.start();
+
+    // Wait for conversation chain
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    engine5.stop();
+
+    // CTO should respond to CEO
+    const ctoMessages = messages.filter((m) => m.senderId === "cto-aria");
+    assert.ok(ctoMessages.length >= 2, `CTO should send multiple messages (delegation + response), got ${ctoMessages.length}`);
+
+    // Jordan should respond to CTO
+    const jordanMessages = messages.filter((m) => m.senderId === "staff-mgr-jordan");
+    assert.ok(jordanMessages.length >= 1, "Jordan should respond in conversation");
+  });
+
+  it("should have 48 agents in total", () => {
+    const engine = new SimulationEngine({ tickIntervalMs: 100 });
+    engine.initialize();
+    assert.equal(engine.agentManager.count, 48);
+  });
+
+  it("should have all roles represented", () => {
+    const engine = new SimulationEngine({ tickIntervalMs: 100 });
+    engine.initialize();
+    const roles = [
+      AgentRole.CEO, AgentRole.CTO,
+      AgentRole.StaffManager, AgentRole.SeniorManager,
+      AgentRole.Manager, AgentRole.PM,
+      AgentRole.SeniorDeveloper, AgentRole.Developer,
+      AgentRole.QA, AgentRole.Tester,
+    ];
+    for (const role of roles) {
+      const agents = engine.agentManager.getByRole(role);
+      assert.ok(agents.length > 0, `Should have agents with role ${role}`);
+    }
+  });
+
+  it("should assign distinct AI models across hierarchy", () => {
+    const engine = new SimulationEngine({ tickIntervalMs: 100 });
+    engine.initialize();
+    const ceo = engine.agentManager.get("ceo-morgan")!;
+    const cto = engine.agentManager.get("cto-aria")!;
+    const jordan = engine.agentManager.get("staff-mgr-jordan")!;
+
+    assert.equal(ceo.persona.modelAssignment, "claude-opus-4.6");
+    assert.equal(cto.persona.modelAssignment, "claude-opus-4.6-1m");
+    assert.equal(jordan.persona.modelAssignment, "claude-opus-4.5");
+    assert.notEqual(ceo.persona.modelAssignment, cto.persona.modelAssignment);
+  });
+});
