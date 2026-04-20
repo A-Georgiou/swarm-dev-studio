@@ -10,6 +10,9 @@ import {
   type GameState,
   type CharacterSprite,
   type SpeechBubble,
+  type SpriteAnimation,
+  type TilemapLayer,
+  type OfficeRoom,
   type Task,
 } from "@swarm/types";
 import { AgentManager } from "../agents/AgentManager.js";
@@ -17,6 +20,7 @@ import { Agent } from "../agents/Agent.js";
 import { OrgManager } from "../org/OrgManager.js";
 import { TaskManager } from "../tasks/TaskManager.js";
 import { MessageBus } from "../messages/MessageBus.js";
+import { LLMClient } from "../llm/LLMClient.js";
 
 /** Callback for when the simulation produces an event. */
 export type SimulationEventHandler = (event: SimulationEvent) => void;
@@ -113,6 +117,38 @@ const MEETING_SPOTS = [
   { x: 60, y: 40 },
 ];
 
+/** Build a proper animations record for a character sprite sheet. */
+function buildAnimations(role: string): Record<AgentState, SpriteAnimation> {
+  const prefix = role.replace(/_/g, "-");
+  return {
+    [AgentState.Idle]:       { name: `${prefix}_idle`,           frames: [0, 1],       frameRate: 2,  loop: true },
+    [AgentState.Walking]:    { name: `${prefix}_walk-down`,      frames: [0, 1, 2, 3], frameRate: 6,  loop: true },
+    [AgentState.Thinking]:   { name: `${prefix}_thinking`,       frames: [0, 1],       frameRate: 2,  loop: true },
+    [AgentState.Coding]:     { name: `${prefix}_sitting-coding`, frames: [0, 1, 2, 3], frameRate: 4,  loop: true },
+    [AgentState.Discussing]: { name: `${prefix}_talking`,        frames: [0, 1, 2, 3], frameRate: 4,  loop: true },
+    [AgentState.Reviewing]:  { name: `${prefix}_sitting-coding`, frames: [0, 1, 2, 3], frameRate: 3,  loop: true },
+    [AgentState.Meeting]:    { name: `${prefix}_talking`,        frames: [0, 1, 2, 3], frameRate: 4,  loop: true },
+  };
+}
+
+/** Static office rooms derived from the office tilemap layout. */
+const OFFICE_ROOMS: OfficeRoom[] = [
+  { id: "executive",   name: "Executive Suite",       bounds: { x: 0,  y: 0,  width: 12, height: 12 }, type: "office" },
+  { id: "management",  name: "Management Area",       bounds: { x: 12, y: 0,  width: 12, height: 12 }, type: "office" },
+  { id: "alpha",       name: "Team Alpha",            bounds: { x: 16, y: 14, width: 12, height: 12 }, type: "open_space" },
+  { id: "beta",        name: "Team Beta",             bounds: { x: 40, y: 14, width: 12, height: 12 }, type: "open_space" },
+  { id: "gamma",       name: "Team Gamma",            bounds: { x: 56, y: 14, width: 12, height: 12 }, type: "open_space" },
+  { id: "delta",       name: "Team Delta",            bounds: { x: 16, y: 32, width: 12, height: 12 }, type: "open_space" },
+  { id: "epsilon",     name: "Team Epsilon",          bounds: { x: 40, y: 32, width: 12, height: 12 }, type: "open_space" },
+  { id: "zeta",        name: "Team Zeta",             bounds: { x: 56, y: 32, width: 12, height: 12 }, type: "open_space" },
+  { id: "leader_mtg",  name: "Leadership Meeting",    bounds: { x: 4,  y: 38, width: 8,  height: 6 },  type: "meeting_room" },
+  { id: "large_mtg",   name: "Large Meeting Room",    bounds: { x: 32, y: 52, width: 10, height: 6 },  type: "meeting_room" },
+  { id: "small_mtg_1", name: "Small Meeting Room 1",  bounds: { x: 46, y: 52, width: 6,  height: 6 },  type: "meeting_room" },
+  { id: "small_mtg_2", name: "Small Meeting Room 2",  bounds: { x: 58, y: 52, width: 6,  height: 6 },  type: "meeting_room" },
+  { id: "small_mtg_3", name: "Small Meeting Room 3",  bounds: { x: 70, y: 52, width: 6,  height: 6 },  type: "meeting_room" },
+  { id: "break_room",  name: "Break Room",            bounds: { x: 0,  y: 52, width: 10, height: 8 },  type: "break_room" },
+];
+
 export class SimulationEngine {
   readonly agentManager: AgentManager;
   readonly orgManager: OrgManager;
@@ -128,6 +164,8 @@ export class SimulationEngine {
   private agentActivityTimers: Map<string, number> = new Map();
   private paused = false;
   private speed = 1;
+  private tilemapLayers: TilemapLayer[] = [];
+  private llmClient: LLMClient;
 
   constructor(config?: Partial<SimulationConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -135,6 +173,7 @@ export class SimulationEngine {
     this.orgManager = new OrgManager();
     this.taskManager = new TaskManager();
     this.messageBus = new MessageBus();
+    this.llmClient = new LLMClient();
   }
 
   /** Initialize all subsystems. */
@@ -151,6 +190,17 @@ export class SimulationEngine {
     for (const agent of this.agentManager.getAll()) {
       this.agentActivityTimers.set(agent.id, 0);
     }
+
+    // Build tilemap layer stubs for the game state
+    // The actual tile data lives in the JSON asset; here we provide
+    // structural metadata so the UI knows which layers exist.
+    const tileCount = 80 * 60;
+    this.tilemapLayers = [
+      { name: "floor",     data: new Array(tileCount).fill(12), visible: true },
+      { name: "walls",     data: new Array(tileCount).fill(0),  visible: true },
+      { name: "furniture", data: new Array(tileCount).fill(0),  visible: true },
+      { name: "above",     data: new Array(tileCount).fill(0),  visible: true },
+    ];
   }
 
   /** Start the simulation loop. */
@@ -226,7 +276,7 @@ export class SimulationEngine {
       .map((agent) => ({
         agentId: agent.id,
         spriteSheet: agent.role,
-        animations: {} as CharacterSprite["animations"],
+        animations: buildAnimations(agent.role),
         position: agent.position,
         direction: agent.direction,
         currentAnimation: agent.state,
@@ -256,8 +306,8 @@ export class SimulationEngine {
         width: 80,
         height: 60,
         tileSize: 16,
-        layers: [],
-        rooms: [],
+        layers: this.tilemapLayers,
+        rooms: OFFICE_ROOMS,
       },
     };
   }
@@ -326,20 +376,24 @@ export class SimulationEngine {
   }
 
   private processIdleAgent(agent: Agent): void {
-    // Random chance of activity
     const rand = Math.random();
 
     if (rand < this.config.movementChance) {
-      // Wander near desk
       this.agentWander(agent);
     } else if (rand < this.config.movementChance + this.config.interactionChance) {
-      // Start an interaction
       this.startRandomInteraction(agent);
     } else if (rand < 0.02 && agent.currentTaskId) {
-      // Work on assigned task
       this.workOnTask(agent);
+    } else if (rand < 0.015) {
+      // LLM-powered thinking: agent reflects on current work
+      this.agentThink(agent, "What should I focus on right now? Reflect briefly on your priorities.")
+        .then((thought) => {
+          this.emitSpeech(agent.id, thought.substring(0, 100), "thinking");
+        })
+        .catch(() => {
+          this.randomIdleSpeech(agent);
+        });
     } else if (rand < 0.01) {
-      // Random idle speech
       this.randomIdleSpeech(agent);
     }
   }
@@ -422,27 +476,44 @@ export class SimulationEngine {
     agent.setState(AgentState.Discussing);
     partner.setState(AgentState.Discussing);
 
-    this.emitSpeech(agent.id, this.getPhrase(agent, AgentState.Discussing), "normal");
+    // Use LLM to generate the conversation opener
+    const topic = agent.currentTaskId
+      ? `Discuss progress on the current task with ${partner.persona.name}.`
+      : `Have a brief work discussion with ${partner.persona.name} about team priorities.`;
+
+    this.agentThink(agent, topic)
+      .then((opener) => {
+        this.emitSpeech(agent.id, opener.substring(0, 100), "normal");
+        this.messageBus.sendDirect(agent.id, partner.id, opener);
+
+        // Partner responds using their own LLM
+        this.scheduleAgentActivity(partner.id, 1500, () => {
+          this.agentThink(partner, `${agent.persona.name} said: "${opener}". Respond briefly.`)
+            .then((reply) => {
+              this.emitSpeech(partner.id, reply.substring(0, 100), "normal");
+              this.messageBus.sendDirect(partner.id, agent.id, reply);
+            })
+            .catch(() => {
+              this.emitSpeech(partner.id, this.getPhrase(partner, AgentState.Discussing), "normal");
+              this.messageBus.sendDirect(partner.id, agent.id, this.getPhrase(partner, AgentState.Discussing));
+            });
+        });
+      })
+      .catch(() => {
+        // Fallback to static phrases
+        this.emitSpeech(agent.id, this.getPhrase(agent, AgentState.Discussing), "normal");
+        this.emitStateChange(agent.id, AgentState.Idle, AgentState.Discussing);
+        this.emitStateChange(partner.id, AgentState.Idle, AgentState.Discussing);
+        this.messageBus.sendDirect(agent.id, partner.id, this.getPhrase(agent, AgentState.Discussing));
+
+        this.scheduleAgentActivity(partner.id, 1500, () => {
+          this.emitSpeech(partner.id, this.getPhrase(partner, AgentState.Discussing), "normal");
+          this.messageBus.sendDirect(partner.id, agent.id, this.getPhrase(partner, AgentState.Discussing));
+        });
+      });
+
     this.emitStateChange(agent.id, AgentState.Idle, AgentState.Discussing);
     this.emitStateChange(partner.id, AgentState.Idle, AgentState.Discussing);
-
-    // Send a threaded conversation
-    const threadId = `thread-discuss-${Date.now()}`;
-    this.messageBus.sendDirect(
-      agent.id,
-      partner.id,
-      this.getPhrase(agent, AgentState.Discussing)
-    );
-
-    // Partner responds in the same thread
-    this.scheduleAgentActivity(partner.id, 1500, () => {
-      this.emitSpeech(partner.id, this.getPhrase(partner, AgentState.Discussing), "normal");
-      this.messageBus.sendDirect(
-        partner.id,
-        agent.id,
-        this.getPhrase(partner, AgentState.Discussing)
-      );
-    });
   }
 
   private workOnTask(agent: Agent): void {
@@ -492,6 +563,39 @@ export class SimulationEngine {
         "normal"
       );
     }
+  }
+
+  /**
+   * Ask an agent's assigned LLM to generate a response for a given context.
+   * The agent's persona (personality, style, role) is injected as the system prompt.
+   * Falls back to local generation when API keys are unavailable.
+   */
+  private async agentThink(agent: Agent, context: string): Promise<string> {
+    const persona = agent.persona;
+    const systemPrompt = [
+      `You are ${persona.name}, ${persona.title}.`,
+      `Communication style: ${persona.communicationStyle}.`,
+      `Personality (Big Five): openness: ${persona.personality.openness}, conscientiousness: ${persona.personality.conscientiousness}, extraversion: ${persona.personality.extraversion}, agreeableness: ${persona.personality.agreeableness}, neuroticism: ${persona.personality.neuroticism}.`,
+      `Your catchphrases include: ${persona.catchphrases.join(", ")}.`,
+      `Respond in character. Be concise (2-3 sentences max).`,
+    ].join(" ");
+
+    const response = await this.llmClient.chat({
+      model: persona.modelAssignment,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: context },
+      ],
+      maxTokens: 256,
+      temperature: 0.7,
+    });
+
+    return response.content;
+  }
+
+  /** Get the LLM client instance (for testing/inspection). */
+  getLLMClient(): LLMClient {
+    return this.llmClient;
   }
 
   // ── Org hierarchy mapping ──────────────────────────────────

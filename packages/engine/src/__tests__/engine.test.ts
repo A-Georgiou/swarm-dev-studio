@@ -20,6 +20,7 @@ import {
   ChannelType,
   MessageType,
 } from "@swarm/types";
+import { LLMClient } from "../llm/LLMClient.js";
 
 // ── Agent Tests ─────────────────────────────────────────────
 
@@ -422,9 +423,145 @@ describe("Delegation Chain", () => {
     const cto = engine.agentManager.get("cto-aria")!;
     const jordan = engine.agentManager.get("staff-mgr-jordan")!;
 
-    assert.equal(ceo.persona.modelAssignment, "claude-opus-4.6");
+    assert.equal(ceo.persona.modelAssignment, "claude-opus-4.7");
     assert.equal(cto.persona.modelAssignment, "claude-opus-4.6-1m");
     assert.equal(jordan.persona.modelAssignment, "claude-opus-4.5");
     assert.notEqual(ceo.persona.modelAssignment, cto.persona.modelAssignment);
+  });
+
+  it("should populate character animations in game state", () => {
+    const engine = new SimulationEngine({ tickIntervalMs: 100 });
+    engine.initialize();
+    const state = engine.getGameState();
+    const char = state.characters[0];
+    assert.ok(char.animations, "Character should have animations");
+
+    const animKeys = Object.keys(char.animations);
+    assert.ok(animKeys.length >= 7, "Should have animations for all 7 agent states");
+
+    // Check a specific animation has proper structure
+    const idleAnim = char.animations[AgentState.Idle];
+    assert.ok(idleAnim.name, "Animation should have a name");
+    assert.ok(Array.isArray(idleAnim.frames), "Animation should have frames array");
+    assert.ok(idleAnim.frameRate > 0, "Animation should have positive frameRate");
+    assert.equal(typeof idleAnim.loop, "boolean", "Animation loop should be boolean");
+  });
+
+  it("should populate tilemap rooms and layers in game state", () => {
+    const engine = new SimulationEngine({ tickIntervalMs: 100 });
+    engine.initialize();
+    const state = engine.getGameState();
+
+    // Tilemap layers
+    assert.ok(state.tilemap.layers.length > 0, "Should have tilemap layers");
+    assert.ok(state.tilemap.layers.length >= 4, "Should have at least 4 layers (floor, walls, furniture, above)");
+    const layerNames = state.tilemap.layers.map((l) => l.name);
+    assert.ok(layerNames.includes("floor"), "Should have floor layer");
+    assert.ok(layerNames.includes("walls"), "Should have walls layer");
+
+    // Each layer should have proper data
+    for (const layer of state.tilemap.layers) {
+      assert.ok(Array.isArray(layer.data), "Layer data should be an array");
+      assert.equal(layer.data.length, 80 * 60, "Layer data should match tile count");
+      assert.equal(typeof layer.visible, "boolean", "Layer visible should be boolean");
+    }
+
+    // Rooms
+    assert.ok(state.tilemap.rooms.length > 0, "Should have office rooms");
+    assert.ok(state.tilemap.rooms.length >= 8, "Should have at least 8 rooms (6 teams + executive + management)");
+    const roomIds = state.tilemap.rooms.map((r) => r.id);
+    assert.ok(roomIds.includes("alpha"), "Should have Team Alpha room");
+    assert.ok(roomIds.includes("executive"), "Should have Executive room");
+    assert.ok(roomIds.includes("large_mtg"), "Should have meeting room");
+
+    // Room structure
+    for (const room of state.tilemap.rooms) {
+      assert.ok(room.id, "Room should have id");
+      assert.ok(room.name, "Room should have name");
+      assert.ok(room.bounds, "Room should have bounds");
+      assert.ok(["office", "meeting_room", "open_space", "break_room", "server_room"].includes(room.type), "Room type should be valid");
+    }
+  });
+});
+
+// ── LLM Client ──────────────────────────────────────────────
+
+describe("LLM Client", () => {
+  it("should generate local responses without API keys", () => {
+    // LLMClient imported at top of file
+    const client = new LLMClient();
+
+    const response = client.generateLocal({
+      model: "claude-opus-4.7",
+      messages: [
+        { role: "system", content: "You are Morgan, CEO. openness: 0.9, conscientiousness: 0.85" },
+        { role: "user", content: "Build a new authentication system" },
+      ],
+    });
+
+    assert.ok(response.content.length > 0, "Should generate non-empty content");
+    assert.equal(response.model, "claude-opus-4.7");
+    assert.equal(response.cached, false);
+  });
+
+  it("should resolve correct provider from model name", () => {
+    // LLMClient imported at top of file
+    const client = new LLMClient();
+
+    // Without API keys, isAvailable returns false
+    assert.equal(client.isAvailable("claude-opus-4.7"), false);
+    assert.equal(client.isAvailable("gpt-5.4"), false);
+  });
+
+  it("should cache identical requests", async () => {
+    // LLMClient imported at top of file
+    const client = new LLMClient();
+
+    const request = {
+      model: "claude-sonnet-4.6",
+      messages: [
+        { role: "system" as const, content: "You are a developer" },
+        { role: "user" as const, content: "Fix the bug in auth module" },
+      ],
+    };
+
+    const first = await client.chat(request);
+    const second = await client.chat(request);
+
+    assert.equal(first.cached, false, "First call should not be cached");
+    assert.equal(second.cached, true, "Second call should be cached");
+    assert.equal(first.content, second.content, "Content should match");
+  });
+
+  it("should generate role-appropriate responses", () => {
+    // LLMClient imported at top of file
+    const client = new LLMClient();
+
+    const ceoResponse = client.generateLocal({
+      model: "claude-opus-4.7",
+      messages: [
+        { role: "system", content: "You are the CEO. Chief Executive Officer" },
+        { role: "user", content: "Build user auth" },
+      ],
+    });
+    assert.ok(ceoResponse.content.includes("strategic"), "CEO should mention strategy");
+
+    const qaResponse = client.generateLocal({
+      model: "gpt-5.2",
+      messages: [
+        { role: "system", content: "You are QA. Quality assurance engineer" },
+        { role: "user", content: "Test user auth" },
+      ],
+    });
+    assert.ok(qaResponse.content.includes("test"), "QA should mention testing");
+  });
+
+  it("should be accessible from SimulationEngine", () => {
+    const engine = new SimulationEngine({ tickIntervalMs: 100 });
+    engine.initialize();
+    const llm = engine.getLLMClient();
+    assert.ok(llm, "Engine should expose LLM client");
+    assert.equal(typeof llm.chat, "function", "LLM client should have chat method");
+    assert.equal(typeof llm.isAvailable, "function", "LLM client should have isAvailable method");
   });
 });

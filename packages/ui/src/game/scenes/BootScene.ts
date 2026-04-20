@@ -37,7 +37,24 @@ const ROLE_COLORS: Record<string, { body: number; accent: number }> = {
 };
 
 /**
- * BootScene — loads all assets and generates placeholder sprites.
+ * Maps AgentRole enum values to the sprite asset filename prefix.
+ * The generated sprites use kebab-case naming (e.g. "qa-engineer").
+ */
+const ROLE_SPRITE_KEYS: Record<string, string> = {
+  ceo: "ceo",
+  cto: "cto",
+  staff_manager: "senior-manager",
+  senior_manager: "senior-manager",
+  manager: "team-manager",
+  pm: "pm",
+  developer: "developer",
+  senior_developer: "senior-dev",
+  qa: "qa-engineer",
+  tester: "tester",
+};
+
+/**
+ * BootScene — loads all assets including generated pixel-art sprites.
  *
  * Shows a simple progress bar during loading, then transitions
  * to the OfficeScene.
@@ -45,6 +62,7 @@ const ROLE_COLORS: Record<string, { body: number; accent: number }> = {
 export class BootScene extends Phaser.Scene {
   private progressBar!: Phaser.GameObjects.Graphics;
   private progressText!: Phaser.GameObjects.Text;
+  private atlasLoadFailed = new Set<string>();
 
   constructor() {
     super({ key: "BootScene" });
@@ -63,10 +81,33 @@ export class BootScene extends Phaser.Scene {
     // Tilemap + tileset
     this.load.tilemapTiledJSON("office-map", "assets/maps/office-map.json");
     this.load.image("office-tileset", "assets/tiles/office-tileset.png");
+
+    // UI assets
+    this.load.image("speech-bubble", "assets/ui/speech-bubble.png");
+    this.load.image("thought-bubble", "assets/ui/thought-bubble.png");
+    this.load.atlas("status-icons", "assets/ui/status-icons.png", "assets/ui/status-icons.json");
+
+    // Load generated sprite atlas assets for each role
+    const spriteKeys = new Set(Object.values(ROLE_SPRITE_KEYS));
+    for (const spriteKey of spriteKeys) {
+      this.load.atlas(
+        `sprite-${spriteKey}`,
+        `assets/sprites/${spriteKey}.png`,
+        `assets/sprites/${spriteKey}.json`
+      );
+    }
+
+    // Track any atlas load failures so we can fall back to procedural sprites
+    this.load.on("loaderror", (file: Phaser.Loader.File) => {
+      if (file.key.startsWith("sprite-")) {
+        this.atlasLoadFailed.add(file.key);
+      }
+    });
   }
 
   create(): void {
-    this.generatePlaceholderSprites();
+    // Generate fallback procedural sprites for any role whose atlas failed to load
+    this.generateFallbackSprites();
     this.createAnimations();
 
     this.progressText.setText("Ready!");
@@ -102,12 +143,29 @@ export class BootScene extends Phaser.Scene {
   }
 
   /**
-   * Generate simple pixel-art character sprite sheets procedurally.
-   * Each role gets a distinct color so characters are visually distinguishable.
+   * Generate procedural fallback sprites only for roles whose atlas
+   * asset failed to load. When the generated assets are available,
+   * this creates nothing — the atlas textures are used directly.
    */
-  private generatePlaceholderSprites(): void {
+  private generateFallbackSprites(): void {
     const roles = Object.values(AgentRole);
     for (const role of roles) {
+      const spriteKey = ROLE_SPRITE_KEYS[role] ?? role;
+      const textureKey = `sprite-${spriteKey}`;
+
+      // If the atlas loaded successfully, skip procedural generation
+      if (this.textures.exists(textureKey) && !this.atlasLoadFailed.has(textureKey)) {
+        // Multiple roles may share the same sprite (e.g. staff_manager → senior-manager)
+        const roleTextureKey = `sprite-${role}`;
+        if (roleTextureKey !== textureKey && !this.textures.exists(roleTextureKey)) {
+          // Create an alias texture reference
+          const src = this.textures.get(textureKey).getSourceImage() as HTMLCanvasElement;
+          if (src) this.textures.addCanvas(roleTextureKey, src);
+        }
+        continue;
+      }
+
+      // Atlas missing — generate a procedural fallback sprite
       this.generateRoleSpriteSheet(role);
     }
   }
@@ -196,60 +254,107 @@ export class BootScene extends Phaser.Scene {
     ctx.fillRect(ox + 8, py + 20, 4, 2);
   }
 
-  /** Register Phaser animations for every generated role sprite sheet. */
+  /**
+   * Register Phaser animations for every role sprite sheet.
+   * Supports both atlas-based sprites (from generated assets) and
+   * procedural fallback sprites.
+   */
   private createAnimations(): void {
     const roles = Object.values(AgentRole);
 
     for (const role of roles) {
-      const key = `sprite-${role}`;
+      const spriteKey = ROLE_SPRITE_KEYS[role] ?? role;
+      const atlasKey = `sprite-${spriteKey}`;
+      const fallbackKey = `sprite-${role}`;
 
-      // Add spritesheet frame data if not already configured
+      // Determine which key to use for this role
+      const useAtlas = this.textures.exists(atlasKey) && !this.atlasLoadFailed.has(atlasKey);
+      const key = useAtlas ? atlasKey : fallbackKey;
+
       if (!this.textures.exists(key)) continue;
 
-      const texture = this.textures.get(key);
-      // Manually add frames to the texture
-      const frameWidth = SPRITE.width;
-      const frameHeight = SPRITE.height;
-      const cols = 4;
-      const rows = 2;
+      if (useAtlas) {
+        // Atlas-based animations using frame names from the JSON atlas
+        const prefix = spriteKey;
+        const directions = ["down", "up", "left", "right"] as const;
 
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const frameIndex = row * cols + col;
-          texture.add(
-            frameIndex,
-            0,
-            col * frameWidth,
-            row * frameHeight,
-            frameWidth,
-            frameHeight,
-          );
+        // Walk animations from atlas
+        for (const dir of directions) {
+          const animFrames = this.anims.generateFrameNames(key, {
+            prefix: `${prefix}_walk-${dir}_`,
+            start: 0,
+            end: 3,
+          });
+          if (animFrames.length > 0) {
+            this.anims.create({
+              key: `${role}-walk-${dir}`,
+              frames: animFrames,
+              frameRate: SPRITE.frameRate,
+              repeat: -1,
+            });
+          }
         }
-      }
 
-      const directions = ["down", "up", "right", "left"] as const;
-
-      // Idle animations (row 0, frames 0-3)
-      for (let i = 0; i < directions.length; i++) {
-        this.anims.create({
-          key: `${role}-idle-${directions[i]}`,
-          frames: [{ key, frame: i }],
-          frameRate: 1,
-          repeat: -1,
+        // Idle animation from atlas
+        const idleFrames = this.anims.generateFrameNames(key, {
+          prefix: `${prefix}_idle_`,
+          start: 0,
+          end: 1,
         });
-      }
+        if (idleFrames.length > 0) {
+          for (const dir of directions) {
+            this.anims.create({
+              key: `${role}-idle-${dir}`,
+              frames: idleFrames,
+              frameRate: 2,
+              repeat: -1,
+            });
+          }
+        }
+      } else {
+        // Procedural fallback animations using frame indices
+        const texture = this.textures.get(key);
+        const frameWidth = SPRITE.width;
+        const frameHeight = SPRITE.height;
+        const cols = 4;
+        const rows = 2;
 
-      // Walk animations (row 1, frames 4-7)
-      for (let i = 0; i < directions.length; i++) {
-        this.anims.create({
-          key: `${role}-walk-${directions[i]}`,
-          frames: [
-            { key, frame: i },
-            { key, frame: i + 4 },
-          ],
-          frameRate: SPRITE.frameRate,
-          repeat: -1,
-        });
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < cols; col++) {
+            const frameIndex = row * cols + col;
+            texture.add(
+              frameIndex,
+              0,
+              col * frameWidth,
+              row * frameHeight,
+              frameWidth,
+              frameHeight,
+            );
+          }
+        }
+
+        const directions = ["down", "up", "right", "left"] as const;
+
+        for (let i = 0; i < directions.length; i++) {
+          this.anims.create({
+            key: `${role}-idle-${directions[i]}`,
+            frames: [{ key, frame: i }],
+            frameRate: 1,
+            repeat: -1,
+          });
+        }
+
+        for (let i = 0; i < directions.length; i++) {
+          this.anims.create({
+            key: `${role}-walk-${directions[i]}`,
+            frames: [
+              { key, frame: i },
+              { key, frame: i + 4 },
+            ],
+            frameRate: SPRITE.frameRate,
+            repeat: -1,
+          });
+        }
       }
     }
   }

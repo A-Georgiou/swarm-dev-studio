@@ -12,6 +12,9 @@ export { TaskManager } from "./tasks/index.js";
 export { MessageBus } from "./messages/index.js";
 export type { MessageHandler } from "./messages/index.js";
 
+export { LLMClient } from "./llm/index.js";
+export type { LLMMessage, LLMResponse, LLMRequest } from "./llm/index.js";
+
 export {
   SimulationEngine,
 } from "./simulation/index.js";

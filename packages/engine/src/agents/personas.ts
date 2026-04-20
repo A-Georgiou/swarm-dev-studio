@@ -16,7 +16,7 @@ export const PERSONAS: Record<string, AgentPersona> = {
     personality: { openness: 0.9, conscientiousness: 0.85, extraversion: 0.8, agreeableness: 0.6, neuroticism: 0.2 },
     communicationStyle: "visionary and decisive, speaks in broad strategy, uses metaphors",
     catchphrases: ["Let's think bigger.", "What's the north star here?", "Ship it."],
-    modelAssignment: "claude-opus-4.6",
+    modelAssignment: "claude-opus-4.7",
   },
   "cto-aria": {
     name: "Aria Chen",

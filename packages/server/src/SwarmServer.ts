@@ -39,6 +39,7 @@ export class SwarmServer {
   private httpServer: ReturnType<typeof createServer> | null = null;
   private wss: WebSocketServer | null = null;
   private clients: Set<WebSocket> = new Set();
+  private clientSubscriptions: Map<WebSocket, Set<string>> = new Map();
 
   constructor(config?: Partial<ServerConfig>) {
     this.config = { ...DEFAULT_SERVER_CONFIG, ...config };
@@ -243,6 +244,7 @@ export class SwarmServer {
 
   private handleWsConnection(ws: WebSocket): void {
     this.clients.add(ws);
+    this.clientSubscriptions.set(ws, new Set(["*"])); // default: receive all
     console.log(`🔌 Client connected (${this.clients.size} total)`);
 
     // Send initial state
@@ -263,6 +265,7 @@ export class SwarmServer {
 
     ws.on("close", () => {
       this.clients.delete(ws);
+      this.clientSubscriptions.delete(ws);
       console.log(`🔌 Client disconnected (${this.clients.size} total)`);
     });
   }
@@ -280,10 +283,28 @@ export class SwarmServer {
         this.simulation.submitTask("User Request", content);
         break;
       }
-      case "subscribe":
-      case "unsubscribe":
-        // Channel subscription management (simplified — broadcast all)
+      case "subscribe": {
+        const subs = this.clientSubscriptions.get(ws);
+        if (subs && event.payload?.channels) {
+          // Remove wildcard when subscribing to specific channels
+          subs.delete("*");
+          for (const ch of event.payload.channels) {
+            subs.add(ch);
+          }
+        }
         break;
+      }
+      case "unsubscribe": {
+        const subs = this.clientSubscriptions.get(ws);
+        if (subs && event.payload?.channels) {
+          for (const ch of event.payload.channels) {
+            subs.delete(ch);
+          }
+          // If no channels left, re-add wildcard so client still gets broadcasts
+          if (subs.size === 0) subs.add("*");
+        }
+        break;
+      }
     }
   }
 
@@ -334,15 +355,21 @@ export class SwarmServer {
         return;
     }
 
-    this.broadcast(wsEvent);
+    this.broadcast(wsEvent, simEvent.type);
   }
 
-  private broadcast(event: ServerWsEvent): void {
+  private broadcast(event: ServerWsEvent, channel?: string): void {
     const data = JSON.stringify(event);
     for (const client of this.clients) {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(data);
+      if (client.readyState !== WebSocket.OPEN) continue;
+
+      // Check subscription filter
+      const subs = this.clientSubscriptions.get(client);
+      if (subs && !subs.has("*") && channel && !subs.has(channel)) {
+        continue;
       }
+
+      client.send(data);
     }
   }
 
