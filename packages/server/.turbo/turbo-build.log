@@ -1,5 +1,0 @@
-
-
-> @swarm/server@0.1.0 build /workspace/packages/server
-> tsc --project tsconfig.json
-

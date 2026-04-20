@@ -1,4 +1,0 @@
-
-> @swarm/engine@0.1.0 typecheck /workspace/packages/engine
-> tsc --noEmit --project tsconfig.json
-
