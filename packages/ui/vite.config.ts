@@ -5,7 +5,17 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: "dist",
-    sourcemap: true,
+    sourcemap: false,
+    minify: "esbuild",
+    chunkSizeWarningLimit: 4000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          phaser: ["phaser"],
+          react: ["react", "react-dom"],
+        },
+      },
+    },
   },
   server: {
     port: 3000,
